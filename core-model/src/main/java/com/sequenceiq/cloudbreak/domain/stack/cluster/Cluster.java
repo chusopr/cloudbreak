@@ -40,6 +40,8 @@ import javax.persistence.UniqueConstraint;
 import com.sequenceiq.cloudbreak.api.model.ConfigStrategy;
 import com.sequenceiq.cloudbreak.api.model.ExecutorType;
 import com.sequenceiq.cloudbreak.api.model.Status;
+import com.sequenceiq.cloudbreak.aspect.vault.VaultIdentifier;
+import com.sequenceiq.cloudbreak.aspect.vault.VaultValue;
 import com.sequenceiq.cloudbreak.authorization.WorkspaceResource;
 import com.sequenceiq.cloudbreak.domain.Blueprint;
 import com.sequenceiq.cloudbreak.domain.Container;
@@ -61,7 +63,7 @@ import com.sequenceiq.cloudbreak.domain.workspace.WorkspaceAwareResource;
 
 @Entity
 @Table(uniqueConstraints = @UniqueConstraint(columnNames = {"workspace_id", "name"}))
-public class Cluster implements ProvisionEntity, WorkspaceAwareResource {
+public class Cluster implements ProvisionEntity, WorkspaceAwareResource, VaultIdentifier {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO, generator = "cluster_generator")
@@ -110,9 +112,10 @@ public class Cluster implements ProvisionEntity, WorkspaceAwareResource {
     @Column(nullable = false)
     private String password;
 
+    @VaultValue
     private String cloudbreakAmbariUser;
 
-    @Convert(converter = EncryptionConverter.class)
+    @VaultValue
     private String cloudbreakAmbariPassword;
 
     @Column(nullable = false)
@@ -163,7 +166,7 @@ public class Cluster implements ProvisionEntity, WorkspaceAwareResource {
 
     private String uptime;
 
-    @Convert(converter = EncryptionConverter.class)
+    @VaultValue
     private String ambariSecurityMasterKey;
 
     @ManyToOne
@@ -436,6 +439,10 @@ public class Cluster implements ProvisionEntity, WorkspaceAwareResource {
         return cloudbreakAmbariUser;
     }
 
+    public String getOriginalCloudbreakAmbariUser() {
+        return cloudbreakAmbariUser;
+    }
+
     public void setCloudbreakAmbariUser(String cloudbreakAmbariUser) {
         this.cloudbreakAmbariUser = cloudbreakAmbariUser;
     }
@@ -550,5 +557,10 @@ public class Cluster implements ProvisionEntity, WorkspaceAwareResource {
     @Override
     public int hashCode() {
         return Objects.hash(id);
+    }
+
+    @Override
+    public String getUniqueIdentifier() {
+        return getStack().getUuid();
     }
 }
