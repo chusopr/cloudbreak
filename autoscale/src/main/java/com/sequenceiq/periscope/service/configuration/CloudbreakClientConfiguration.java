@@ -20,17 +20,14 @@ public class CloudbreakClientConfiguration {
     private String cbRootContextPath;
 
     @Autowired
-    @Qualifier("identityServerUrl")
-    private String identityServerUrl;
+    @Qualifier("TODO")
+    private String caasProtocol;
 
-    @Value("${periscope.client.id}")
-    private String clientId;
-
-    @Value("${periscope.client.secret}")
-    private String secret;
+    @Value("${TODO}")
+    private String caasAddress;
 
     @Bean
     public CloudbreakClient cloudbreakClient() {
-        return new CloudbreakClientBuilder(cloudbreakUrl + cbRootContextPath, identityServerUrl, clientId).withSecret(secret).build();
+        return new CloudbreakClientBuilder(cloudbreakUrl + cbRootContextPath, caasAddress, caasProtocol).build();
     }
 }

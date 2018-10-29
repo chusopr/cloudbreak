@@ -5,7 +5,9 @@ import java.util.Map;
 
 public class IntegrationTestContext {
 
-    public static final String IDENTITY_URL = "IDENTITY_URL";
+    public static final String CAAS_PROTOCOL = "CAAS_PROTOCOL";
+
+    public static final String CAAS_URL = "CAAS_URL";
 
     public static final String AUTH_USER = "AUTH_USER";
 

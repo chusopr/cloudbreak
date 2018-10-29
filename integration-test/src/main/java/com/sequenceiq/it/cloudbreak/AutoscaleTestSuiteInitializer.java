@@ -47,7 +47,7 @@ public class AutoscaleTestSuiteInitializer extends AbstractTestNGSpringContextTe
     @Parameters("periscopeServer")
     public void initCloudbreakSuite(@Optional("") String periscopeServer) {
         periscopeServer = StringUtils.hasLength(periscopeServer) ? periscopeServer : defaultPeriscopeServer;
-        String identity = itContext.getContextParam(IntegrationTestContext.IDENTITY_URL);
+        String identity = itContext.getContextParam(null); // TODO
         String user = itContext.getContextParam(IntegrationTestContext.AUTH_USER);
         String password = itContext.getContextParam(IntegrationTestContext.AUTH_PASSWORD);
 

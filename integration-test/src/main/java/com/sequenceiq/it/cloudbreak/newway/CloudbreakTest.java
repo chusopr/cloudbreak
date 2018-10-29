@@ -30,7 +30,9 @@ import com.sequenceiq.it.cloudbreak.newway.logsearch.LogSearchUtil;
 public class CloudbreakTest extends GherkinTest {
     public static final String CLOUDBREAK_SERVER_ROOT = "CLOUDBREAK_SERVER_ROOT";
 
-    public static final String IDENTITY_URL = "IDENTITY_URL";
+    public static final String CAAS_PROTOCOL = "CAAS_PROTOCOL";
+
+    public static final String CAAS_URL = "CAAS_URL";
 
     public static final String USER = "USER";
 
@@ -58,8 +60,11 @@ public class CloudbreakTest extends GherkinTest {
     @Value("${server.contextPath:/cb}")
     private String cbRootContextPath;
 
-    @Value("${integrationtest.uaa.server}")
-    private String uaaServer;
+    @Value("${integrationtest.caas.url}")
+    private String caasUrl;
+
+    @Value("${integrationtest.caas.protocol:http}")
+    private String caasProtocol;
 
     @Value("${integrationtest.uaa.user}")
     private String defaultUaaUser;
@@ -93,7 +98,8 @@ public class CloudbreakTest extends GherkinTest {
         LOGGER.info("CloudbreakTest default values ::: ");
         IntegrationTestContext testContext = getItContext();
         testContext.putContextParam(CLOUDBREAK_SERVER_ROOT, server + cbRootContextPath);
-        testContext.putContextParam(IDENTITY_URL, uaaServer);
+        testContext.putContextParam(CAAS_URL, caasUrl);
+        testContext.putContextParam(CAAS_PROTOCOL, caasProtocol);
         testContext.putContextParam(USER, defaultUaaUser);
         testContext.putContextParam(PASSWORD, defaultUaaPassword);
         testContext.putContextParam(AUTOSCALE_CLIENTID, autoscaleUaaClientId);
@@ -105,7 +111,6 @@ public class CloudbreakTest extends GherkinTest {
                 LogSearchUtil.LOG_SEARCH_CBOWNER_QUERY_TYPE, defaultUaaUser);
 
         testParameter.put("INTEGRATIONTEST_CLOUDBREAK_SERVER", server + cbRootContextPath);
-        testParameter.put("INTEGRATIONTEST_UAA_SERVER", uaaServer);
         testParameter.put("INTEGRATIONTEST_UAA_USER", defaultUaaUser);
         testParameter.put("INTEGRATIONTEST_UAA_PASSWORD", defaultUaaPassword);
 

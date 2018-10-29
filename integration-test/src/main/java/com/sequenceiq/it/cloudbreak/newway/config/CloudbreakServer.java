@@ -37,8 +37,11 @@ public class CloudbreakServer {
     @Value("${server.contextPath:/cb}")
     private String cbRootContextPath;
 
-    @Value("${integrationtest.uaa.server}")
-    private String uaaServer;
+    @Value("${integrationtest.caas.url}")
+    private String caasUrl;
+
+    @Value("${integrationtest.caas.protocol:http}")
+    private String caasProtocol;
 
     @Value("${integrationtest.uaa.user}")
     private String defaultUaaUser;
@@ -65,7 +68,6 @@ public class CloudbreakServer {
         Path cbProfileLocation = Paths.get(userHome, ".cb", "config");
 
         String server = this.server;
-        String uaaServer = this.uaaServer;
         String defaultUaaUser = this.defaultUaaUser;
         String defaultUaaPassword = this.defaultUaaPassword;
 
@@ -90,13 +92,7 @@ public class CloudbreakServer {
                         + "-Dintegrationtest.cb.profile should be added with exited profile");
             } else {
                 if (StringUtils.isEmpty(server)) {
-                    server = prof.get("server");
-                    if ("localhost".equals(usedProfile) && !StringUtils.isEmpty(server)) {
-                        uaaServer = "http://" + server + ":8089";
-                    } else {
-                        uaaServer = "https://" + server;
-                    }
-                    server = "https://" + server;
+                    server = "https://" + prof.get("server");
                 }
                 if (StringUtils.isEmpty(defaultUaaPassword)) {
                     defaultUaaPassword = prof.get("password");
@@ -111,12 +107,14 @@ public class CloudbreakServer {
 
         checkNonEmpty(server);
         checkNonEmpty(cbRootContextPath);
-        checkNonEmpty(uaaServer);
+        checkNonEmpty(caasProtocol);
+        checkNonEmpty(caasUrl);
         checkNonEmpty(defaultUaaUser);
         checkNonEmpty(defaultUaaPassword);
 
         testParameter.put(CloudbreakTest.CLOUDBREAK_SERVER_ROOT, server + cbRootContextPath);
-        testParameter.put(CloudbreakTest.IDENTITY_URL, uaaServer);
+        testParameter.put(CloudbreakTest.CAAS_URL, caasUrl);
+        testParameter.put(CloudbreakTest.CAAS_PROTOCOL, caasProtocol);
         testParameter.put(CloudbreakTest.USER, defaultUaaUser);
         testParameter.put(CloudbreakTest.PASSWORD, defaultUaaPassword);
 

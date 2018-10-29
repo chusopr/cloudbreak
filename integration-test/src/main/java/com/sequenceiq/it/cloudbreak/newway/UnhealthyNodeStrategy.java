@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import com.sequenceiq.cloudbreak.api.model.FailureReport;
 import com.sequenceiq.cloudbreak.api.model.stack.StackResponse;
 import com.sequenceiq.cloudbreak.api.model.stack.instance.InstanceGroupResponse;
-import com.sequenceiq.cloudbreak.client.ConfigKey;
 import com.sequenceiq.it.IntegrationTestContext;
 
 public class UnhealthyNodeStrategy implements Strategy {
@@ -37,12 +36,7 @@ public class UnhealthyNodeStrategy implements Strategy {
     }
 
     private ProxyCloudbreakClient getAutoscaleProxyCloudbreakClient(IntegrationTestContext integrationTestContext) {
-        return new ProxyCloudbreakClient(
-                    integrationTestContext.getContextParam(CloudbreakTest.CLOUDBREAK_SERVER_ROOT),
-                    integrationTestContext.getContextParam(CloudbreakTest.IDENTITY_URL),
-                    integrationTestContext.getContextParam(CloudbreakTest.AUTOSCALE_SECRET),
-                    integrationTestContext.getContextParam(CloudbreakTest.AUTOSCALE_CLIENTID),
-                    new ConfigKey(false, true, true));
+        return null; // TODO CaasClient for periscope
 
     }
 }

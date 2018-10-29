@@ -103,11 +103,12 @@ public class CloudbreakTestSuiteInitializer extends AbstractTestNGSpringContextT
         itContext.putContextParam(CloudbreakITContextConstants.CLOUDBREAK_SERVER, cloudbreakServer);
         itContext.putContextParam(CloudbreakITContextConstants.CLOUDBREAK_SERVER_ROOT, cbServerRoot);
         itContext.putContextParam(CloudbreakITContextConstants.CLOUDPROVIDER, cloudProvider);
-        String identity = itContext.getContextParam(IntegrationTestContext.IDENTITY_URL);
+        String caasUrl = itContext.getContextParam(IntegrationTestContext.CAAS_URL);
+        String caasProtocol = itContext.getContextParam(IntegrationTestContext.CAAS_PROTOCOL);
         String user = itContext.getContextParam(IntegrationTestContext.AUTH_USER);
         String password = itContext.getContextParam(IntegrationTestContext.AUTH_PASSWORD);
 
-        CloudbreakClient cloudbreakClient = new CloudbreakClientBuilder(cbServerRoot, identity, "cloudbreak_shell")
+        CloudbreakClient cloudbreakClient = new CloudbreakClientBuilder(cbServerRoot, caasUrl, caasProtocol)
                 .withCertificateValidation(false).withIgnorePreValidation(true).withDebug(true).withCredential(user, password).build();
         itContext.putContextParam(CloudbreakITContextConstants.CLOUDBREAK_CLIENT, cloudbreakClient);
         if (cleanUpBeforeStart) {

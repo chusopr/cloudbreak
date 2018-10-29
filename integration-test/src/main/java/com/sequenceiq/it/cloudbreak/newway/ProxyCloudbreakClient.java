@@ -10,14 +10,9 @@ public class ProxyCloudbreakClient extends com.sequenceiq.cloudbreak.client.Clou
 
     private static final String AFTER_MESSAGE = " Stack post response:\n";
 
-    public ProxyCloudbreakClient(String cloudbreakAddress, String identityServerAddress, String user, String password, String clientId,
+    public ProxyCloudbreakClient(String cloudbreakAddress, String caasProtocol, String caasUrl, String user, String password,
                                     ConfigKey configKey) {
-        super(cloudbreakAddress, identityServerAddress, user, password, clientId, configKey);
-    }
-
-    protected ProxyCloudbreakClient(String cloudbreakAddress, String identityServerAddress, String secret, String clientId,
-                                    ConfigKey configKey) {
-        super(cloudbreakAddress, identityServerAddress, secret, clientId, configKey);
+        super(cloudbreakAddress, caasProtocol, caasUrl, user, password, configKey);
     }
 
     @Override

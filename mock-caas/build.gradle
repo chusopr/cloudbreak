@@ -1,0 +1,56 @@
+import org.ajoberstar.grgit.Grgit
+
+buildscript {
+  repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url = "$repoUrl" }
+    jcenter()
+  }
+  dependencies {
+    classpath "org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}"
+  }
+}
+
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+springBoot {
+  mainClassName = 'com.sequenceiq.caas.MockCaasApp'
+}
+
+jar {
+  baseName = 'mock-caas'
+  archiveName = 'mock-caas.jar'
+}
+
+bootJar {
+  baseName = 'mock-caas'
+  archiveName = 'mock-caas.jar'
+  manifest {
+    def grgit = Grgit.open(currentDir: project.projectDir)
+    attributes "Implementation-Version": grgit.describe()
+  }
+}
+
+dependencies {
+  compile project(':core-api')
+  compile("com.sequenceiq:${ambariClientName}:${ambariClientVersion}") {
+    exclude group: 'org.slf4j';
+  }
+
+  compile group: 'com.google.code.gson',          name: 'gson',                           version: '2.6.2'
+  compile group: 'org.codehaus.groovy',           name: 'groovy-all',                     version: '2.5.0'
+  compile group:  'org.springframework.boot',     name: 'spring-boot-starter',            version: springBootVersion
+  compile group:  'org.springframework.boot',     name: 'spring-boot-starter-test',       version: springBootVersion
+  compile group:  'org.springframework.boot',     name: 'spring-boot-starter-web',        version: springBootVersion
+  compile group:  'org.springframework.boot',     name: 'spring-boot-starter-actuator',   version: springBootVersion
+  compile group:  'org.springframework',          name: 'spring-context-support',         version: springFrameworkVersion
+  compile group: 'com.google.code.findbugs',      name: 'annotations',                    version: '3.0.1'
+  runtime group: 'com.google.inject',             name: 'guice',                          version: '3.0'
+  runtime group: 'javax.xml.bind',                name: 'jaxb-api', version: '2.3.0'
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}

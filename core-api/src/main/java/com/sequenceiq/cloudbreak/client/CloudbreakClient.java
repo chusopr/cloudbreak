@@ -15,6 +15,7 @@ import javax.annotation.Nullable;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.Form;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
@@ -129,15 +130,13 @@ public class CloudbreakClient {
 
     private static final String TOKEN_KEY = "TOKEN";
 
-    private static final double TOKEN_EXPIRATION_FACTOR = 0.9;
-
     private final Logger logger = LoggerFactory.getLogger(CloudbreakClient.class);
 
     private final ExpiringMap<String, String> tokenCache;
 
     private final Client client;
 
-    private final IdentityClient identityClient;
+    private final CaasClient caasClient;
 
     private final String cloudbreakAddress;
 
@@ -145,31 +144,20 @@ public class CloudbreakClient {
 
     private String password;
 
-    private String secret;
-
     private WebTarget webTarget;
 
     private EndpointWrapperHolder endpointWrapperHolder;
 
-    protected CloudbreakClient(String cloudbreakAddress, String identityServerAddress, String user, String password, String clientId, ConfigKey configKey) {
+
+    protected CloudbreakClient(String cloudbreakAddress, String caasProtocol, String caasUrl, String user, String password, ConfigKey configKey) {
         client = RestClientUtil.get(configKey);
         this.cloudbreakAddress = cloudbreakAddress;
-        identityClient = new IdentityClient(identityServerAddress, clientId, configKey);
+        caasClient = new CaasClient(caasProtocol, caasUrl, configKey);
         this.user = user;
         this.password = password;
         tokenCache = configTokenCache();
-        logger.info("CloudbreakClient has been created with user / pass. cloudbreak: {}, identity: {}, clientId: {}, configKey: {}", cloudbreakAddress,
-                identityServerAddress, clientId, configKey);
-    }
-
-    protected CloudbreakClient(String cloudbreakAddress, String identityServerAddress, String secret, String clientId, ConfigKey configKey) {
-        client = RestClientUtil.get(configKey);
-        this.cloudbreakAddress = cloudbreakAddress;
-        identityClient = new IdentityClient(identityServerAddress, clientId, configKey);
-        this.secret = secret;
-        tokenCache = configTokenCache();
-        logger.info("CloudbreakClient has been created with a secret. cloudbreak: {}, identity: {}, clientId: {}, configKey: {}", cloudbreakAddress,
-                identityServerAddress, clientId, configKey);
+        logger.info("CloudbreakClient has been created with user / pass. cloudbreak: {}, cass: {}, configKey: {}", cloudbreakAddress,
+                caasUrl, configKey);
     }
 
     public AccountPreferencesEndpoint accountPreferencesEndpoint() {
@@ -371,12 +359,8 @@ public class CloudbreakClient {
     protected synchronized <T> T refreshIfNeededAndGet(@Nullable Class<T> clazz, boolean forced) {
         String token = tokenCache.get(TOKEN_KEY);
         if (token == null || endpointWrapperHolder == null) {
-            AccessToken accessToken;
-            accessToken = secret != null ? identityClient.getToken(secret) : identityClient.getToken(user, password);
-            token = accessToken.getToken();
-            int exp = (int) (accessToken.getExpiresIn() * TOKEN_EXPIRATION_FACTOR);
-            logger.info("Token has been renewed and expires in {} seconds", exp);
-            tokenCache.put(TOKEN_KEY, accessToken.getToken(), ExpirationPolicy.CREATED, exp, TimeUnit.SECONDS);
+            token = caasClient.getToken(user, password);
+            tokenCache.put(TOKEN_KEY, token, ExpirationPolicy.CREATED, 1, TimeUnit.HOURS);
             refreshEndpointWrapperHolder(token);
         }
         Optional<?> first = endpointWrapperHolder.endpoints.stream()
@@ -391,17 +375,18 @@ public class CloudbreakClient {
     }
 
     protected void refreshEndpointWrapperHolder(String token) {
-        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
-        headers.add("Authorization", "Bearer " + token);
+        List<Cookie> cookies = Collections.emptyList();
+        cookies.add(new Cookie("dps-jwt", token));
         webTarget = client.target(cloudbreakAddress).path(CoreApi.API_ROOT_CONTEXT);
         endpointWrapperHolder = Optional.ofNullable(endpointWrapperHolder).orElse(new EndpointWrapperHolder());
-        ENDPOINTS.forEach(e -> endpointWrapperHolder.setEndpoint(newEndpoint(e, headers)));
+        ENDPOINTS.forEach(e -> endpointWrapperHolder.setEndpoint(newEndpoint(e, cookies)));
         logger.info("Endpoints have been renewed for CloudbreakClient");
     }
 
-    private <C> Pair<Class<C>, C> newEndpoint(Class<C> resourceInterface, MultivaluedMap<String, Object> headers) {
+    private <C> Pair<Class<C>, C> newEndpoint(Class<C> resourceInterface, List<Cookie> cookies) {
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
         return new ImmutablePair<>(resourceInterface,
-                WebResourceFactory.newResource(resourceInterface, webTarget, false, headers, Collections.emptyList(), EMPTY_FORM));
+                WebResourceFactory.newResource(resourceInterface, webTarget, false, headers, cookies, EMPTY_FORM));
     }
 
     private class EndpointWrapperHolder {
@@ -457,15 +442,13 @@ public class CloudbreakClient {
 
         private final String cloudbreakAddress;
 
-        private final String identityServerAddress;
+        private final String caasAddress;
 
-        private final String clientId;
+        private final String caasProtocol;
 
         private String user;
 
         private String password;
-
-        private String secret;
 
         private boolean debug;
 
@@ -473,20 +456,15 @@ public class CloudbreakClient {
 
         private boolean ignorePreValidation;
 
-        public CloudbreakClientBuilder(String cloudbreakAddress, String identityServerAddress, String clientId) {
+        public CloudbreakClientBuilder(String cloudbreakAddress, String caasAddress, String caasProtocol) {
             this.cloudbreakAddress = cloudbreakAddress;
-            this.identityServerAddress = identityServerAddress;
-            this.clientId = clientId;
+            this.caasAddress = caasAddress;
+            this.caasProtocol = caasProtocol;
         }
 
         public CloudbreakClientBuilder withCredential(String user, String password) {
             this.user = user;
             this.password = password;
-            return this;
-        }
-
-        public CloudbreakClientBuilder withSecret(String secret) {
-            this.secret = secret;
             return this;
         }
 
@@ -507,8 +485,7 @@ public class CloudbreakClient {
 
         public CloudbreakClient build() {
             ConfigKey configKey = new ConfigKey(secure, debug, ignorePreValidation);
-            return secret != null ? new CloudbreakClient(cloudbreakAddress, identityServerAddress, secret, clientId, configKey)
-                    : new CloudbreakClient(cloudbreakAddress, identityServerAddress, user, password, clientId, configKey);
+            return new CloudbreakClient(cloudbreakAddress, caasProtocol, caasAddress, user, password, configKey);
         }
     }
 }

@@ -1,3 +1,10 @@
+mock-caas:
+  ports:
+    - 11080:8080
+  volumes:
+  - ./:/it
+  command: java -jar /it/build/libs/mock-caas.jar com.sequenceiq.caas.MockCaasApp
+  image: openjdk:10-jdk
 test:
   dns:
   ports:
@@ -18,6 +25,7 @@ test:
     - INTEGRATIONTEST_UAA_PASSWORD=cloudbreak
     - INTEGRATIONTEST_UAA_AUTOSCALE_CLIENTID
     - INTEGRATIONTEST_UAA_AUTOSCALE_CLIENTSECRET
+    - INTEGRATIONTEST_CAAS_URL=$PUBLIC_IP:10080
     - CLOUDBREAK_URL=cloudbreak.service.consul:8080
     - SPRING_CONFIG_LOCATION=classpath:/application.yml,/it/it-application.yml
     - INTEGRATIONTEST_SUITEFILES

@@ -20,12 +20,16 @@ echo $INTEGRATIONTEST_SUITEFILES
 
 echo -e "\n\033[1;96m--- Start cloudbreak\033[0m\n"
 cd $INTEGCB_LOCATION
-sudo ./cbd regenerate
-sudo ./cbd start-wait consul registrator identity commondb cloudbreak
+./cbd regenerate
+./cbd start-wait consul registrator commondb cloudbreak
 
 echo -e "\n\033[1;96m--- Start testing... (it may take few minutes to finish.)\033[0m\n"
 cd ..
 rm -rf test-output
+$INTEGCB_LOCATION/.deps/bin/docker-compose up -d mock-caas
+
+sleep 60
+
 $INTEGCB_LOCATION/.deps/bin/docker-compose up test > test.out
 echo -e "\n\033[1;96m--- Test finished\033[0m\n"
 

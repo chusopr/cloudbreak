@@ -17,6 +17,12 @@ import com.sequenceiq.it.config.IntegrationTestConfiguration;
 
 @ContextConfiguration(classes = IntegrationTestConfiguration.class, initializers = ConfigFileApplicationContextInitializer.class)
 public class TestSuiteInitializer extends AbstractTestNGSpringContextTests {
+    @Value("${integrationtest.caas.url}")
+    private String caasUrl;
+
+    @Value("${integrationtest.caas.protocol:http}")
+    private String caasProtocol;
+
     @Value("${integrationtest.uaa.server}")
     private String defaultUaaServer;
 
@@ -51,7 +57,8 @@ public class TestSuiteInitializer extends AbstractTestNGSpringContextTests {
         uaaUser = getString(uaaUser, defaultUaaUser);
         uaaPassword = getString(uaaPassword, defaultUaaPassword);
 
-        itContext.putContextParam(IntegrationTestContext.IDENTITY_URL, uaaServer);
+        itContext.putContextParam(IntegrationTestContext.CAAS_URL, caasUrl);
+        itContext.putContextParam(IntegrationTestContext.CAAS_PROTOCOL, caasProtocol);
         itContext.putContextParam(IntegrationTestContext.AUTH_USER, uaaUser);
         itContext.putContextParam(IntegrationTestContext.AUTH_PASSWORD, uaaPassword);
     }
