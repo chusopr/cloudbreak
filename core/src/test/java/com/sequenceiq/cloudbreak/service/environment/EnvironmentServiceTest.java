@@ -1,5 +1,6 @@
 package com.sequenceiq.cloudbreak.service.environment;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -7,15 +8,20 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -24,6 +30,7 @@ import org.springframework.core.convert.ConversionService;
 
 import com.google.common.collect.Sets;
 import com.sequenceiq.cloudbreak.api.model.CredentialRequest;
+import com.sequenceiq.cloudbreak.api.model.environment.request.EnvironmentChangeCredentialRequest;
 import com.sequenceiq.cloudbreak.api.model.environment.request.EnvironmentDetachRequest;
 import com.sequenceiq.cloudbreak.api.model.environment.request.EnvironmentRequest;
 import com.sequenceiq.cloudbreak.api.model.environment.response.DetailedEnvironmentResponse;
@@ -31,20 +38,22 @@ import com.sequenceiq.cloudbreak.common.model.user.CloudbreakUser;
 import com.sequenceiq.cloudbreak.controller.validation.ValidationResult;
 import com.sequenceiq.cloudbreak.controller.validation.environment.EnvironmentCreationValidator;
 import com.sequenceiq.cloudbreak.converter.environment.EnvironmentToDetailedEnvironmentResponseConverter;
-import com.sequenceiq.cloudbreak.converter.users.WorkspaceToWorkspaceResourceResponseConverter;
 import com.sequenceiq.cloudbreak.domain.Credential;
 import com.sequenceiq.cloudbreak.domain.LdapConfig;
 import com.sequenceiq.cloudbreak.domain.ProxyConfig;
 import com.sequenceiq.cloudbreak.domain.RDSConfig;
 import com.sequenceiq.cloudbreak.domain.environment.Environment;
+import com.sequenceiq.cloudbreak.domain.view.StackApiView;
 import com.sequenceiq.cloudbreak.domain.workspace.User;
 import com.sequenceiq.cloudbreak.domain.workspace.Workspace;
 import com.sequenceiq.cloudbreak.repository.environment.EnvironmentRepository;
 import com.sequenceiq.cloudbreak.service.RestRequestThreadLocalService;
-import com.sequenceiq.cloudbreak.service.credential.CredentialService;
+import com.sequenceiq.cloudbreak.service.TransactionService;
+import com.sequenceiq.cloudbreak.service.TransactionService.TransactionExecutionException;
 import com.sequenceiq.cloudbreak.service.ldapconfig.LdapConfigService;
 import com.sequenceiq.cloudbreak.service.proxy.ProxyConfigService;
 import com.sequenceiq.cloudbreak.service.rdsconfig.RdsConfigService;
+import com.sequenceiq.cloudbreak.service.stack.StackApiViewService;
 import com.sequenceiq.cloudbreak.service.user.UserService;
 import com.sequenceiq.cloudbreak.service.workspace.WorkspaceService;
 
@@ -76,16 +85,24 @@ public class EnvironmentServiceTest {
     private ProxyConfigService proxyConfigService;
 
     @Mock
-    private CredentialService credentialService;
+    private EnvironmentCredentialOperationService environmentCredentialOperationService;
 
     @Mock
     private EnvironmentCreationValidator environmentCreationValidator;
+
+    @Mock
+    private StackApiViewService stackApiViewService;
 
     @Mock
     private ConversionService conversionService;
 
     @Mock
     private EnvironmentRepository environmentRepository;
+
+    @Mock
+    private TransactionService transactionService;
+
+    private ArgumentCaptor<StackApiView> stackApiViewCaptor = ArgumentCaptor.forClass(StackApiView.class);
 
     @InjectMocks
     private EnvironmentService environmentService;
@@ -95,10 +112,9 @@ public class EnvironmentServiceTest {
     @InjectMocks
     private EnvironmentToDetailedEnvironmentResponseConverter environmentConverter;
 
-    private final WorkspaceToWorkspaceResourceResponseConverter workspaceConverter = new WorkspaceToWorkspaceResourceResponseConverter();
-
     @Before
-    public void setup() {
+    public void setup() throws TransactionExecutionException {
+        doAnswer(invocation -> ((Supplier<?>) invocation.getArgument(0)).get()).when(transactionService).required(any());
         workspace.setId(WORKSPACE_ID);
         workspace.setName("ws");
         when(ldapConfigService.findByNamesInWorkspace(anySet(), anyLong())).thenReturn(Collections.emptySet());
@@ -126,7 +142,7 @@ public class EnvironmentServiceTest {
 
         when(conversionService.convert(any(EnvironmentRequest.class), eq(Environment.class))).thenReturn(new Environment());
         when(environmentRepository.save(any(Environment.class))).thenReturn(new Environment());
-        when(credentialService.getByNameForWorkspaceId(CREDENTIAL_NAME, WORKSPACE_ID)).thenReturn(new Credential());
+        when(environmentCredentialOperationService.getCredentialFromRequest(any(), anyLong())).thenReturn(new Credential());
 
         DetailedEnvironmentResponse response = environmentService.createForLoggedInUser(environmentRequest, WORKSPACE_ID);
 
@@ -144,8 +160,7 @@ public class EnvironmentServiceTest {
 
         when(conversionService.convert(any(EnvironmentRequest.class), eq(Environment.class))).thenReturn(new Environment());
         when(environmentRepository.save(any(Environment.class))).thenReturn(new Environment());
-        when(credentialService.createForLoggedInUser(any(), anyLong())).thenReturn(new Credential());
-        when(conversionService.convert(any(CredentialRequest.class), eq(Credential.class))).thenReturn(new Credential());
+        when(environmentCredentialOperationService.getCredentialFromRequest(any(), anyLong())).thenReturn(new Credential());
 
         DetailedEnvironmentResponse response = environmentService.createForLoggedInUser(environmentRequest, WORKSPACE_ID);
 
@@ -211,5 +226,42 @@ public class EnvironmentServiceTest {
         assertTrue(detachResponse.getLdapConfigs().contains(ldapName2));
         assertTrue(detachResponse.getProxyConfigs().contains(proxyName2));
         assertTrue(detachResponse.getRdsConfigs().contains(rdsName2));
+    }
+
+    @Test
+    public void testChangeCredentialHappyPath() {
+        Environment environment = new Environment();
+        environment.setName(ENVIRONMENT_NAME);
+        when(environmentRepository.findByNameAndWorkspaceId(ENVIRONMENT_NAME, WORKSPACE_ID)).thenReturn(environment);
+
+        String credentialName1 = "credential1";
+        Credential credential1 = new Credential();
+        credential1.setName(credentialName1);
+        environment.setCredential(credential1);
+        Set<StackApiView> workloadClusters = new HashSet<>();
+        StackApiView stackApiView1 = new StackApiView();
+        StackApiView stackApiView2 = new StackApiView();
+        workloadClusters.add(stackApiView1);
+        workloadClusters.add(stackApiView2);
+        environment.setWorkloadClusters(workloadClusters);
+        String credentialName2 = "credential2";
+        Credential credential2 = new Credential();
+        credential2.setName(credentialName2);
+        when(environmentCredentialOperationService.validatePlatformAndGetCredential(any(), any(), anyLong())).thenReturn(credential2);
+        when(stackApiViewService.canChangeCredential(any())).thenReturn(true);
+        when(environmentRepository.save(any(Environment.class)))
+                .thenAnswer((Answer<Environment>) invocation -> (Environment) invocation.getArgument(0));
+        when(conversionService.convert(any(Environment.class), eq(DetailedEnvironmentResponse.class)))
+                .thenAnswer((Answer<DetailedEnvironmentResponse>) invocation -> environmentConverter.convert((Environment) invocation.getArgument(0)));
+
+
+        EnvironmentChangeCredentialRequest request = new EnvironmentChangeCredentialRequest();
+        request.setCredentialName(credentialName2);
+
+        DetailedEnvironmentResponse response = environmentService.changeCredential(ENVIRONMENT_NAME, WORKSPACE_ID, request);
+
+        verify(stackApiViewService, times(2)).save(stackApiViewCaptor.capture());
+        assertEquals(ENVIRONMENT_NAME, response.getName());
+        assertEquals(credentialName2, response.getCredentialName());
     }
 }

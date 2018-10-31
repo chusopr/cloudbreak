@@ -93,7 +93,6 @@ public class EnvironmentCreationValidator implements Validator<Tuple2<Environmen
             PlatformResourceRequest platformResourceRequest = new PlatformResourceRequest();
             platformResourceRequest.setCredential(credential);
             platformResourceRequest.setCloudPlatform(cloudPlatform);
-            // TODO: no idea where to get it from: platformResourceRequest.setPlatformVariant();
             CloudRegions regions = platformParameterService.getRegionsByCredential(platformResourceRequest);
             Set<String> existingRegions = regions.getCloudRegions().keySet()
                     .stream().map(Region::getRegionName).collect(Collectors.toSet());
