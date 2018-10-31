@@ -1,6 +1,7 @@
 package com.sequenceiq.cloudbreak.service.environment;
 
 import static com.sequenceiq.cloudbreak.authorization.WorkspaceResource.ENVIRONMENT;
+import static com.sequenceiq.cloudbreak.cloud.model.Region.region;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -19,10 +20,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.sequenceiq.cloudbreak.api.model.environment.request.EnvironmentAttachRequest;
 import com.sequenceiq.cloudbreak.api.model.environment.request.EnvironmentDetachRequest;
 import com.sequenceiq.cloudbreak.api.model.environment.request.EnvironmentRequest;
+import com.sequenceiq.cloudbreak.api.model.environment.request.LocationRequest;
 import com.sequenceiq.cloudbreak.api.model.environment.response.DetailedEnvironmentResponse;
 import com.sequenceiq.cloudbreak.api.model.environment.response.SimpleEnvironmentResponse;
 import com.sequenceiq.cloudbreak.authorization.WorkspaceResource;
 import com.sequenceiq.cloudbreak.cloud.model.CloudRegions;
+import com.sequenceiq.cloudbreak.cloud.model.Coordinate;
 import com.sequenceiq.cloudbreak.controller.exception.BadRequestException;
 import com.sequenceiq.cloudbreak.controller.exception.NotFoundException;
 import com.sequenceiq.cloudbreak.controller.validation.ValidationResult;
@@ -130,11 +133,11 @@ public class EnvironmentService extends AbstractWorkspaceAwareResourceService<En
 
     private void setRegions(Environment environment, EnvironmentRequest environmentRequest, boolean regionsSupported) {
         try {
+            PlatformResourceRequest platformResourceRequest = new PlatformResourceRequest();
+            platformResourceRequest.setCredential(environment.getCredential());
+            platformResourceRequest.setCloudPlatform(environment.getCloudPlatform());
+            CloudRegions cloudRegions = platformParameterService.getRegionsByCredential(platformResourceRequest);
             if (regionsSupported) {
-                PlatformResourceRequest platformResourceRequest = new PlatformResourceRequest();
-                platformResourceRequest.setCredential(environment.getCredential());
-                platformResourceRequest.setCloudPlatform(environment.getCloudPlatform());
-                CloudRegions cloudRegions = platformParameterService.getRegionsByCredential(platformResourceRequest);
                 Set<Region> regionSet = new HashSet<>();
                 Map<com.sequenceiq.cloudbreak.cloud.model.Region, String> displayNames = cloudRegions.getDisplayNames();
                 for (com.sequenceiq.cloudbreak.cloud.model.Region r : cloudRegions.getCloudRegions().keySet()) {
@@ -150,8 +153,27 @@ public class EnvironmentService extends AbstractWorkspaceAwareResourceService<En
             } else {
                 environment.setRegions(new Json(new HashSet<>()));
             }
+            setLocation(environment, environmentRequest, cloudRegions);
+
         } catch (JsonProcessingException e) {
             throw new BadRequestException(e.getMessage());
+        }
+    }
+
+    private void setLocation(Environment environment, EnvironmentRequest environmentRequest, CloudRegions cloudRegions) {
+        Coordinate coordinate = cloudRegions.getCoordinates().get(region(environmentRequest.getLocation().getLocationName()));
+        LocationRequest location = environmentRequest.getLocation();
+        if (coordinate != null) {
+            environment.setLocation(coordinate.getDisplayName());
+            environment.setLatitude(coordinate.getLatitude());
+            environment.setLongitude(coordinate.getLongitude());
+        } else if (location != null && location.getLatitude() != null && location.getLongitude() != null) {
+            environment.setLocation(location.getLocationName());
+            environment.setLatitude(location.getLatitude());
+            environment.setLongitude(location.getLongitude());
+        } else {
+            throw new BadRequestException(String.format("No location found with name %s in the location list. The supported locations are: [%s]",
+                    environmentRequest.getLocation(), cloudRegions.locationNames()));
         }
     }
 
